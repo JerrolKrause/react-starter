@@ -1,19 +1,26 @@
 import { ApiState } from '$components';
 import { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { userDetailsStore } from '../../shared/stores/api.store';
 
 export function ViewUsers() {
   const { userId } = useParams(); // Get route params for user ID
 
   const { state, data, get, reset } = userDetailsStore.useContext();
+  const navigate = useNavigate();
 
   /** Stuff to do on load */
   useEffect(() => {
+    // If no user ID, navigate to main users page
+    if (!userId) {
+      navigate('/users');
+      return;
+    }
     get({ apiUrlAppend: '/' + userId, refresh: true }); // Get new user data in store
     return () => reset(); // Clear store out on exit. Prevents previous content from showing on next page load
-  }, [get, reset, userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   return (
     <div>

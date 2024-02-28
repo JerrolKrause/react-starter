@@ -104,8 +104,6 @@ export const AutoComplete: React.FC = () => {
  * @returns
  */
 export const DisplayOutput: React.FC<Partial<AutoCompleteStateTyped>> = ({ users, posts }) => {
-  // export const DisplayOutput: React.FC<{ state: AutoCompleteStateTyped }> = ({ state }) => {
-  // const { users, posts }: AutoCompleteStateTyped = state;
   return (
     <>
       <h2>Users</h2>
