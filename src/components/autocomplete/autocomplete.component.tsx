@@ -1,29 +1,25 @@
-import axios from 'axios';
-
 import { Models } from '$shared';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ApiState, useHttp } from './use-http.hook';
 
 interface AutoCompleteState<t, y> {
   textValue: string | null;
   users: t | null;
   posts: y | null;
-  loading: boolean;
-  error: string | null;
 }
 
-type AutoCompleteStateTyped = AutoCompleteState<Models.User[], any[]>;
-
-const initialState: AutoCompleteStateTyped = {
-  textValue: null,
-  users: null,
-  posts: null,
-  loading: false,
-  error: null,
-};
+type AutoCompleteStateTyped = AutoCompleteState<Models.User[], Models.Post[]>;
 
 export const AutoComplete: React.FC = () => {
+  const { state: usersState, get: getUsers } = useHttp<Models.User[]>('https://jsonplaceholder.typicode.com/users');
+  const { state: postsState, get: getPosts } = useHttp<Models.Post[]>('https://jsonplaceholder.typicode.com/posts');
+
+  const [searchValue, setSearchValue] = useState('');
+  const [users, setUsers] = useState<null | Models.User[]>(null);
+  const [posts, setPosts] = useState<null | Models.Post[]>(null);
+
   // State management
-  const [state, setState] = useState(initialState);
+  // const [state, setState] = useState(initialState);
   // Is component mounted, use to prevent async operations when unmounted
   const isMounted = useRef(false);
   // Clear up and running debounce operation
@@ -32,22 +28,13 @@ export const AutoComplete: React.FC = () => {
   console.log('Initing');
 
   /**
-   * Make changes to state
-   * @param stateNew
-   */
-  function stateChange(stateNew: Partial<AutoCompleteStateTyped>) {
-    setState(stateOld => ({ ...stateOld, ...stateNew }));
-  }
-
-  /**
    * Debounce an input
    */
   let isDebouncing = false;
   let value = '';
   const debounceInputChanges = (e: React.ChangeEvent<HTMLInputElement>) => {
     value = e.target.value;
-    // Set loading to true
-    stateChange({ textValue: value, loading: true });
+    setSearchValue(value);
 
     if (!isDebouncing) {
       isDebouncing = true;
@@ -55,76 +42,43 @@ export const AutoComplete: React.FC = () => {
         clearTimeout(timeoutIdRef.current);
       }
       timeoutIdRef.current = window.setTimeout(() => {
-        Promise.all([getUsers(value), getPosts(value)]).then(
-          ([users, posts]) => {
-            isDebouncing = false;
-            if (isMounted.current) {
-              stateChange({
-                loading: false,
-                users,
-                posts,
-              });
-            }
-          },
-          error => stateChange({ loading: false, error }),
-        );
+        // Update users after debounce
+        Promise.all([getUsers(), getPosts()]).then(([users, posts]) => {
+          // Update Users
+          setUsers(
+            !searchValue
+              ? users
+              : (users ?? [])?.filter(user =>
+                  JSON.stringify(user)
+                    .toLowerCase()
+                    .replace(/[^a-zA-Z ]/g, '')
+                    .includes((value ?? '').toLowerCase().replace(/[^a-zA-Z ]/g, '')),
+                ),
+          );
+          // Update Posts
+          setPosts(
+            !searchValue
+              ? posts
+              : (posts ?? [])?.filter(post =>
+                  JSON.stringify(post)
+                    .toLowerCase()
+                    .replace(/[^a-zA-Z ]/g, '')
+                    .includes((value ?? '').toLowerCase().replace(/[^a-zA-Z ]/g, '')),
+                ),
+          );
+        });
       }, 1000);
     }
   };
 
-  /**
-   * Return users from the web API
-   * @param searchValue - A search term to filter data against. If nil will return all results
-   * @param addData - Manually add the data to state instead of just returning it
-   * @returns
-   */
-  const getUsers = useCallback((searchValue?: string | null, addData = false) => {
-    return axios.get<Models.User[]>('https://jsonplaceholder.typicode.com/users').then(response => {
-      const users = !searchValue
-        ? response.data
-        : response.data.filter(user =>
-            JSON.stringify(user)
-              .toLowerCase()
-              .replace(/[^a-zA-Z ]/g, '')
-              .includes((searchValue ?? '').toLowerCase().replace(/[^a-zA-Z ]/g, '')),
-          );
-      if (addData && isMounted.current) {
-        stateChange({ users });
-      }
-      return users;
-    });
-  }, []);
-
-  /**
-   * Get all posts
-   * @param searchValue - Optional filter value
-   * @param addData - Add data directly to state in addition to being returned
-   * @returns
-   */
-  function getPosts(searchValue?: string | null, addData = false) {
-    console.log(1);
-    return axios.get<any[]>('https://jsonplaceholder.typicode.com/posts').then(response => {
-      const posts = !searchValue
-        ? response.data
-        : response.data.filter(post =>
-            JSON.stringify(post)
-              .toLowerCase()
-              .replace(/[^a-zA-Z ]/g, '')
-              .includes((searchValue ?? '').toLowerCase().replace(/[^a-zA-Z ]/g, '')),
-          );
-      if (addData && isMounted.current) {
-        stateChange({ posts });
-      }
-      return posts;
-    });
-  }
-
   useEffect(() => {
-    isMounted.current = true;
-    // On Init
     console.log('useEffect');
-    // Load initial list of users
-    getUsers(null, true);
+    isMounted.current = true;
+
+    // Hydrate app on load
+    getUsers();
+    getPosts();
+
     // On unmount
     return () => {
       isMounted.current = false;
@@ -132,14 +86,14 @@ export const AutoComplete: React.FC = () => {
         clearTimeout(timeoutIdRef.current);
       }
     };
-  }, [getUsers]);
+  }, [getUsers, getPosts]);
 
   return (
     <div>
-      <input value={state.textValue ?? ''} onChange={debounceInputChanges} />
-      <ApiState loading={state.loading} error={state.error}></ApiState>
+      <input value={searchValue ?? ''} onChange={debounceInputChanges} />
+      <ApiStateComponent loading={usersState.loading} error={usersState.error}></ApiStateComponent>
       <hr />
-      <DisplayOutput users={state.users} posts={state.posts}></DisplayOutput>
+      <DisplayOutput users={users} posts={posts}></DisplayOutput>
     </div>
   );
 };
@@ -168,7 +122,7 @@ export const DisplayOutput: React.FC<Partial<AutoCompleteStateTyped>> = ({ users
  * @param param0
  * @returns
  */
-function ApiState({ loading, error }: Partial<AutoCompleteStateTyped>) {
+function ApiStateComponent<t>({ loading, error }: Partial<ApiState<t>>) {
   return (
     <>
       {loading && <div>Loading</div>}
