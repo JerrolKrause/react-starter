@@ -136,9 +136,12 @@ export function apiStoreCreator<t, contextType>(config: NtsState.ConfigApi<t> | 
      * @param payload
      * @param optionsOverride
      */
-    function request<p = unknown>(payload: p, optionsOverride?: NtsState.Options) {
-      return _get({ refresh: true, ...optionsOverride }, payload);
-    }
+    const request = useCallback(
+      <p = unknown,>(payload: p, optionsOverride?: NtsState.Options) => {
+        return _get({ refresh: true, ...optionsOverride }, payload);
+      },
+      [_get],
+    );
 
     /**
      * Consolidates all POST/PUT/PATCH requests into a single UPSERT function
@@ -147,26 +150,29 @@ export function apiStoreCreator<t, contextType>(config: NtsState.ConfigApi<t> | 
      * @param mapFn
      * @returns
      */
-    function upsert(apiRequest: Promise<AxiosResponse<t, unknown>>, data: Partial<t>, mapFn?: <t>(x: t | null) => unknown) {
-      setState(stateSrc => ({ ...stateSrc, modifying: true, errorModify: null }));
-      return apiRequest
-        .then(r => {
-          // If a map function was provided, modify the data before executing anything else
-          const resMapped = mapFn ? mapFn(r.data) : r.data;
-          // Merge the api response with the payload
-          const resMerged = mergePayloadWithApiResponse(data, resMapped) as t;
-          // If this is an entity store
-          if (isEntityStore && is.entityConfig(config) && !!state?.data && Array.isArray(state.data)) {
-            const delta = mergeDedupeArrays(state.data, resMerged, config.uniqueId as keyof t);
-            setState(stateSrc => ({ ...stateSrc, modifying: false, ...delta }));
-          } else {
-            setState(stateSrc => ({ ...stateSrc, modifying: false, resMerged }));
-          }
-        })
-        .catch(error => {
-          setState(stateSrc => ({ ...stateSrc, modifying: false, error }));
-        });
-    }
+    const upsert = useCallback(
+      (apiRequest: Promise<AxiosResponse<t, unknown>>, data: Partial<t>, mapFn?: <t>(x: t | null) => unknown) => {
+        setState(stateSrc => ({ ...stateSrc, modifying: true, errorModify: null }));
+        return apiRequest
+          .then(r => {
+            // If a map function was provided, modify the data before executing anything else
+            const resMapped = mapFn ? mapFn(r.data) : r.data;
+            // Merge the api response with the payload
+            const resMerged = mergePayloadWithApiResponse(data, resMapped) as t;
+            // If this is an entity store
+            if (isEntityStore && is.entityConfig(config) && !!state?.data && Array.isArray(state.data)) {
+              const delta = mergeDedupeArrays(state.data, resMerged, config.uniqueId as keyof t);
+              setState(stateSrc => ({ ...stateSrc, modifying: false, ...delta }));
+            } else {
+              setState(stateSrc => ({ ...stateSrc, modifying: false, resMerged }));
+            }
+          })
+          .catch(error => {
+            setState(stateSrc => ({ ...stateSrc, modifying: false, error }));
+          });
+      },
+      [state],
+    );
 
     /**
      * Perform a POST request
@@ -174,11 +180,14 @@ export function apiStoreCreator<t, contextType>(config: NtsState.ConfigApi<t> | 
      * @param optionsOverride
      * @returns
      */
-    function post(data: Partial<t>, optionsOverride?: NtsState.Options) {
-      const options = mergeConfig(config, optionsOverride);
-      const url = apiUrlGet(options, 'post', null);
-      return upsert(api.post(url, data), data, config.map?.post);
-    }
+    const post = useCallback(
+      (data: Partial<t>, optionsOverride?: NtsState.Options) => {
+        const options = mergeConfig(config, optionsOverride);
+        const url = apiUrlGet(options, 'post', null);
+        return upsert(api.post(url, data), data, config.map?.post);
+      },
+      [upsert],
+    );
 
     /**
      * Perform a PUT request
@@ -186,11 +195,14 @@ export function apiStoreCreator<t, contextType>(config: NtsState.ConfigApi<t> | 
      * @param optionsOverride
      * @returns
      */
-    function put(data: Partial<t>, optionsOverride?: NtsState.Options) {
-      const options = mergeConfig(config, optionsOverride);
-      const url = apiUrlGet(options, 'put', data);
-      return upsert(api.put(url, data), data, config.map?.put);
-    }
+    const put = useCallback(
+      (data: Partial<t>, optionsOverride?: NtsState.Options) => {
+        const options = mergeConfig(config, optionsOverride);
+        const url = apiUrlGet(options, 'put', data);
+        return upsert(api.put(url, data), data, config.map?.put);
+      },
+      [upsert],
+    );
 
     /**
      * Perform a PATCH request
@@ -198,11 +210,14 @@ export function apiStoreCreator<t, contextType>(config: NtsState.ConfigApi<t> | 
      * @param optionsOverride
      * @returns
      */
-    function patch(data: Partial<t>, optionsOverride?: NtsState.Options) {
-      const options = mergeConfig(config, optionsOverride);
-      const url = apiUrlGet(options, 'patch', data);
-      return upsert(api.patch(url, data), data, config.map?.patch);
-    }
+    const patch = useCallback(
+      (data: Partial<t>, optionsOverride?: NtsState.Options) => {
+        const options = mergeConfig(config, optionsOverride);
+        const url = apiUrlGet(options, 'patch', data);
+        return upsert(api.patch(url, data), data, config.map?.patch);
+      },
+      [upsert],
+    );
 
     /**
      * Perform a DELETE request
@@ -210,39 +225,45 @@ export function apiStoreCreator<t, contextType>(config: NtsState.ConfigApi<t> | 
      * @param optionsOverride
      * @returns
      */
-    function remove(data: Partial<t>, optionsOverride?: NtsState.Options) {
-      const options = mergeConfig(config, optionsOverride);
-      const url = apiUrlGet(options, 'delete', data);
-      setState(stateSrc => ({ ...stateSrc, modifying: true, errorModify: null }));
-      return api
-        .delete<t>(url)
-        .then(r => {
-          // Check if this is an entity store
-          if (isEntityStore && is.entityConfig(config) && !!state?.data && Array.isArray(state.data)) {
-            // Delete entities from store
-            const updated = deleteEntities<t>(state.data, data, config.uniqueId as keyof t);
-            setState(stateSrc => ({ ...stateSrc, modifying: false, ...updated }));
-          } else {
-            // Delete on a non entity format
-            setState(stateSrc => ({ ...stateSrc, modifying: false, data: r.data || null }));
-          }
-        })
-        .catch(error => setState(stateSrc => ({ ...stateSrc, modifying: false, error })));
-    }
+    const remove = useCallback(
+      (data: Partial<t>, optionsOverride?: NtsState.Options) => {
+        const options = mergeConfig(config, optionsOverride);
+        const url = apiUrlGet(options, 'delete', data);
+        setState(stateSrc => ({ ...stateSrc, modifying: true, errorModify: null }));
+        return api
+          .delete<t>(url)
+          .then(r => {
+            // Check if this is an entity store
+            if (isEntityStore && is.entityConfig(config) && !!state?.data && Array.isArray(state.data)) {
+              // Delete entities from store
+              const updated = deleteEntities<t>(state.data, data, config.uniqueId as keyof t);
+              setState(stateSrc => ({ ...stateSrc, modifying: false, ...updated }));
+            } else {
+              // Delete on a non entity format
+              setState(stateSrc => ({ ...stateSrc, modifying: false, data: r.data || null }));
+            }
+          })
+          .catch(error => setState(stateSrc => ({ ...stateSrc, modifying: false, error })));
+      },
+      [state],
+    );
 
     /**
      * Refresh the data in the store
      */
-    function refresh(optionsOverride?: NtsState.Options) {
-      return get({ ...optionsOverride, refresh: true });
-    }
+    const refresh = useCallback(
+      (optionsOverride?: NtsState.Options) => {
+        return get({ ...optionsOverride, refresh: true });
+      },
+      [get],
+    );
 
     /**
      * Reset store to its initial state
      */
-    function reset() {
+    const reset = useCallback(() => {
       setState(isEntityStore ? getStateEntitySrc : getStateSrc);
-    }
+    }, []);
 
     /** On load */
     useEffect(() => {
