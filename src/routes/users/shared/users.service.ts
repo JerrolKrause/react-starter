@@ -1,3 +1,4 @@
+/**
 import { BehaviorSubject } from 'rxjs';
 
 function ApiService() {
@@ -16,3 +17,4 @@ export const usersService = ApiService();
 
 const { state$, get } = usersService;
 state$.subscribe(state => {});
+ */

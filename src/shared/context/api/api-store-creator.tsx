@@ -10,16 +10,16 @@ import { apiUrlGet, deleteEntities, is, mergeConfig, mergeDedupeArrays, mergePay
  * // How to rename props with object destructuring
  * const { get, data: usersData, state: usersState } = users;
  */
-function apiStoreCreatorSrc<t, isEntity extends boolean>(
+function useApiStoreCreatorSrc<t, isEntity extends boolean>(
   config: NtsState.ConfigApi<t> | NtsState.ConfigEntity<t>,
   isEntityStore: boolean,
 ): NtsState.ApiStore<t, isEntity> {
   // Initialize Axios with base url
   const api = axios.create({ baseURL: config.apiUrlBase });
+  const { getItem } = useStorage();
 
   // Get interceptor
   api.interceptors.request.use(config => {
-    const { getItem } = useStorage();
     const token = getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -48,20 +48,6 @@ function apiStoreCreatorSrc<t, isEntity extends boolean>(
   const [state, setState] = useState({ ...initialState });
 
   let loading = false;
-
-  /**
-  // TODO: Fix any
-  // NtsState.Context<t> | NtsState.ContextEntities<t>
-  const contextSrc: any = isEntityStore ? contextEntities<t>() : contextDefault<t>();
-
-  const Context = createContext<contextType>(contextSrc);
-
-  /** Global UI State Context 
-  const useApiContext = () => useContext(Context);
-
-  /** Global UI State Provider 
-  const Provider = ({ children }: { children?: ReactNode | null }) => {};
-   */
 
   /**
    *
@@ -276,8 +262,8 @@ function apiStoreCreatorSrc<t, isEntity extends boolean>(
  * @param config Configuration for this store
  * @returns
  */
-export const createApiStore = <t,>(config: NtsState.ConfigApi<t>) => {
-  return apiStoreCreatorSrc<t, false>(config, false);
+export const useCreateApiStore = <t,>(config: NtsState.ConfigApi<t>) => {
+  return useApiStoreCreatorSrc<t, false>(config, false); // ✅ Now this is inside a hook
 };
 
 /**
@@ -285,8 +271,8 @@ export const createApiStore = <t,>(config: NtsState.ConfigApi<t>) => {
  * @param config Configuration for this store
  * @returns
  */
-export const createEntityStore = <t,>(config: NtsState.ConfigEntity<t>) => {
-  return apiStoreCreatorSrc<t, true>(config, true);
+export const useCreateEntityStore = <t,>(config: NtsState.ConfigEntity<t>) => {
+  return useApiStoreCreatorSrc<t, true>(config, true); // ✅ Now this is inside a hook
 };
 
 /**
@@ -298,12 +284,12 @@ export const createEntityStore = <t,>(config: NtsState.ConfigEntity<t>) => {
  * const post = store<Models.Post>({ apiUrl: '/posts/1' });
  * @returns
  */
-export const apiStoreCreator =
+export const useApiStoreCreator =
   (configBase: NtsState.ConfigApi) =>
   <t,>(config: NtsState.ConfigApi<t>) => {
     // Merge base config with specific store config
     const c = deepMergeObjects(configBase, config);
-    return createApiStore<t>(c);
+    return useCreateApiStore<t>(c);
   };
 
 /**
@@ -315,10 +301,10 @@ export const apiStoreCreator =
  * const post = store<Models.Post>({ apiUrl: '/posts/1' });
  * @returns
  */
-export const entityStoreCreator =
+export const useEntityStoreCreator =
   (configBase: NtsState.ConfigEntity) =>
   <t,>(config: NtsState.ConfigEntity<t>) => {
     // Merge base config with specific store config
     const c = deepMergeObjects(configBase, config);
-    return createEntityStore<t>(c);
+    return useCreateEntityStore<t>(c);
   };

@@ -29,7 +29,7 @@ export function Users() {
    * @param user
    */
   const deleteUser = (user: Models.User) => {
-    const c = confirm(`Are you sure you want to remove ${user.name}?`);
+    const c = window.confirm(`Are you sure you want to remove ${user.name}?`);
     if (c) {
       remove(user);
       update(null);
