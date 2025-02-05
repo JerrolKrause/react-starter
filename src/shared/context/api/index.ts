@@ -1,2 +1,2 @@
-export * from './api-store';
+export * from './api-store-creator';
 export * from './api.models';

@@ -7,7 +7,7 @@ import { userDetailsStore } from '../../shared/stores/api.store';
 export function ViewUsers() {
   const { userId } = useParams(); // Get route params for user ID
 
-  const { state, data, get, reset } = userDetailsStore.useContext();
+  const { state, data, get, reset } = userDetailsStore;
 
   /** Stuff to do on load */
   useEffect(() => {

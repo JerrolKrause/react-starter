@@ -11,7 +11,7 @@ import { usersUiStore } from './shared/stores/ui.store';
 import './users.page.scss';
 
 export function Users() {
-  const { data: usersData, state: usersState, refresh, reset, post, put, remove } = usersStore.useContext();
+  const { data: usersData, state: usersState, refresh, reset, post, put, remove } = usersStore;
 
   const { state: uiState, update } = usersUiStore.useContext();
   /** Stuff to do on load */

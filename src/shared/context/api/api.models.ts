@@ -1,15 +1,51 @@
 export namespace NtsState {
-  /** Contains both the api state and any data */
-  export interface ApiState<t = any, e = any> {
+  export type ApiStore<t, isEntity extends boolean> = {
+    /** The current state of the API store */
+    state: isEntity extends true ? NtsState.EntityApiState<t[]> : NtsState.ApiState<t>;
+
+    /** The actual data stored */
+    data: isEntity extends true ? t[] | null : t | null;
+
+    /** Fetches data from the API and stores it */
+    get: (optionsOverride?: NtsState.Options) => Promise<void>;
+
+    /** Sends a request payload to the API and stores the response */
+    request: <p = unknown>(payload: p, optionsOverride?: NtsState.Options) => Promise<void>;
+
+    /** Creates a new record via a POST request */
+    post: (data: Partial<t>, optionsOverride?: NtsState.Options) => Promise<void>;
+
+    /** Updates an existing record via a PUT request */
+    put: (data: Partial<t>, optionsOverride?: NtsState.Options) => Promise<void>;
+
+    /** Partially updates a record via a PATCH request */
+    patch: (data: Partial<t>, optionsOverride?: NtsState.Options) => Promise<void>;
+
+    /** Deletes a record via a DELETE request */
+    remove: (data: Partial<t>, optionsOverride?: NtsState.Options) => Promise<void>;
+
+    /** Refreshes the store by re-fetching data from the API */
+    refresh: () => Promise<void>;
+
+    /** Resets the store to its initial state */
+    reset: () => void;
+  };
+
+  interface State<e> {
     [key: string]: any;
     loading: boolean;
     modifying: boolean;
     error: null | e;
     errorModify: null | e;
+  }
+
+  /** Contains both the api state and any data */
+  export interface ApiState<t = any, e = any> extends State<e> {
     data: t | null;
   }
 
-  export interface EntityApiState<t = any, e = any> extends ApiState<t, e> {
+  export interface EntityApiState<t = any, e = any> extends State<e> {
+    data: t | null;
     /** If api response type is an array of objects, create record here. Will be null otherwise */
     entities: Record<string | number, t>;
   }
